@@ -58,11 +58,13 @@ int count, TetBlock* figures_template, int score){
 
 void freeTetGame(TetGame* tetg){
     if (tetg){
-         freeTetField(tetg->field);
-         freeTetFiguresT(tetg->figurest);
-         free(tetg); 
+        freeTetField(tetg->field);
+        freeTetFiguresT(tetg->figurest);
+        freeTetFigure(tetg->figure);  // Если фигура была выделена динамически
+        free(tetg);
     }
-};
+}
+
 
 
 void moveFigureDown(TetGame* tetg){ //перемещение фигуры вниз
