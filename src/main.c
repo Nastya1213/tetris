@@ -97,6 +97,7 @@ void start_game(){
         if (pause == 0){
             calculateTet(tetg);
         }
+        freeGameInfo(&gameInfo, tetg->field, tetg->figurest);
         gameInfo = updateCurrentState(tetg, pause); //обновляем информацию
         printTetField(&gameInfo);
         printTetFigure(tetg);
