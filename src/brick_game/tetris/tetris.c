@@ -166,6 +166,9 @@ void freeTetFigure(TetFigure* tf){
 
 void dropNewFigure(TetGame* tetg){ //выброс новой фигуры
     tetg->number_template = tetg->next_template;
+    if (tetg->figure) {
+        freeTetFigure(tetg->figure); // Убедитесь, что старая фигура удаляется
+    }
     TetFigure* t = createTetFigure(tetg); //создаем новую фигуру в памяти
     t->x = tetg->field->width/2 - t->size/2;
     t->y = 0;
