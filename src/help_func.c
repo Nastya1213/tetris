@@ -95,30 +95,27 @@ GameInfo_t updateCurrentState(TetGame* tetGame, int pause) {
 }
 
 
-
 void freeGameInfo(GameInfo_t* gameInfo, TetField* field, TetFiguresT* figurest) {
-    // Освобождение памяти для игрового поля (field)
+    // Освобождение игрового поля (field)
     if (gameInfo->field != NULL) {
         for (int i = 0; i < field->height; i++) {
-            free(gameInfo->field[i]);  // Освобождаем каждую строку
+            free(gameInfo->field[i]);  // Освобождение каждой строки
         }
-        free(gameInfo->field);  // Освобождаем сам массив строк
-        gameInfo->field = NULL;  // Обнуляем указатель
+        free(gameInfo->field);  // Освобождение массива строк
+        gameInfo->field = NULL;
     }
-    // Освобождение памяти для следующей фигуры (next)
+
+    // Освобождение следующей фигуры (next)
     if (gameInfo->next != NULL) {
-        // Если для следующей фигуры выделена память, то нужно освободить её по размеру
-        if (figurest != NULL) {
-            // Здесь предполагаем, что мы должны знать размер следующего шаблона
-            int nextTemplateSize = figurest->size;  // Размер следующего шаблона
-            for (int i = 0; i < nextTemplateSize; i++) {
-                free(gameInfo->next[i]);  // Освобождаем каждый блок
-            }
-            free(gameInfo->next);  // Освобождаем сам массив блоков
-            gameInfo->next = NULL;  // Обнуляем указатель
+        int nextTemplateSize = figurest->size;  // Размер следующего шаблона
+        for (int i = 0; i < nextTemplateSize; i++) {
+            free(gameInfo->next[i]);  // Освобождение каждой строки
         }
+        free(gameInfo->next);  // Освобождение массива строк
+        gameInfo->next = NULL;
     }
 }
+
 
 void userInput(UserAction_t action, bool hold, TetPlayer* player, int* pause) {
     if (hold) {
