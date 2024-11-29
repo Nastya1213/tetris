@@ -153,6 +153,31 @@ void userInput(UserAction_t action, bool hold, TetPlayer* player, int* pause) {
 }
 
 
+void freeGameResources(TetGame *game) {
+    if (game) {
+        // Освобождение текущей фигуры
+        if (game->figure) {
+            free(game->figure->blocks); // Освобождение блоков фигуры
+            free(game->figure);
+        }
+        // Освобождение игрового поля
+        if (game->field) {
+            if (game->field->blocks) {
+                free(game->field->blocks);
+            }
+            free(game->field);
+        }
+        // Освобождение шаблонов фигур
+        if (game->figurest) {
+            if (game->figurest->blocks) {
+                free(game->figurest->blocks);
+            }
+            free(game->figurest);
+        }
+        // Освобождение структуры самой игры
+        free(game);
+    }
+}
 
 
 #endif
