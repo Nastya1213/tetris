@@ -1,350 +1,264 @@
+#ifndef TETRIS_C
+#define TETRIS_C
 #include "tetris.h"
+#include <stdlib.h>
 
-const int TETROMINOS[7][4][4] = {
-    // Квадрат
-    {{0, 1, 1, 0}, {0, 1, 1, 0}, {0, 0, 0, 0}, {0, 0, 0, 0}},
-    // Линия
-    {{0, 0, 0, 0}, {2, 2, 2, 2}, {0, 0, 0, 0}, {0, 0, 0, 0}},
-    // Т-образная фигура
-    {{0, 0, 0, 0}, {0, 3, 3, 3}, {0, 0, 3, 0}, {0, 0, 0, 0}},
-    // L-образная фигура
-    {{0, 0, 4, 0}, {0, 0, 4, 0}, {0, 0, 4, 4}, {0, 0, 0, 0}},
-    // Обратная L-образная фигура
-    {{0, 5, 0, 0}, {0, 5, 0, 0}, {0, 5, 5, 0}, {0, 0, 0, 0}},
-    // Z-образная фигура
-    {{0, 0, 0, 0}, {6, 6, 0, 0}, {0, 6, 6, 0}, {0, 0, 0, 0}},
-    // Обратная Z-образная фигура
-    {{0, 0, 0, 0}, {0, 7, 7, 0}, {7, 7, 0, 0}, {0, 0, 0, 0}}};
 
-int initializeField(GameInfo_t *game) {
-  // инициализируем поле для игры
-  game->field = (int **)malloc(HEIGHT * sizeof(int *));
-  if (game->field == NULL) {
-    perror("Failed to allocate memory for game->field");
-    return 0;
-  }
-  for (int i = 0; i < HEIGHT; i++) {
-    game->field[i] = (int *)malloc(WIDTH * sizeof(int));
-    if (game->field[i] == NULL) {
-      perror("Failed to allocate memory for game->field[i]");
-      for (int j = 0; j < i; j++) {
-        free(game->field[j]);
-      }
-      free(game->field);
-      return 0;
-    }
-  }
-  // Выделяем память для следующей фигуры
-  game->next = (int **)malloc(4 * sizeof(int *));
-  if (game->next == NULL) {
-    perror("Failed to allocate memory for game->next");
-    freeMemory(game, 1, 0);
-    return 0;
-  }
-  for (int i = 0; i < 4; i++) {
-    game->next[i] = (int *)malloc(4 * sizeof(int));
-    if (game->next[i] == NULL) {
-      perror("Failed to allocate memory for game->next[i]");
-      for (int j = 0; j < i; j++) {
-        free(game->next[j]);
-      }
-      free(game->next);
-      freeMemory(game, 1, 0);
-      return 0;
-    }
-  }
-  for (int i = 0; i < HEIGHT; i++) {
-    for (int j = 0; j < WIDTH; j++) {
-      game->field[i][j] = 0;
-    }
-  }
-  for (int i = 0; i < 4; i++) {
-    for (int j = 0; j < 4; j++) {
-      game->next[i][j] = 0;
-    }
-  }
-  return 1;
-}
+TetFiguresT* createTetFiguresT(int count, int figures_size, TetBlock* figures_template){
+    TetFiguresT* tetft = (TetFiguresT*)malloc(sizeof(TetFiguresT));
+    tetft->count = count;
+    tetft->size = figures_size;
+    tetft->blocks =  figures_template;
+    return tetft; 
+};
 
-int canMoveDown(Figure_t *figure, GameInfo_t *game) {
-  for (int y = 0; y < 4; y++) {
-    for (int x = 0; x < 4; x++) {
-      if (figure->figureArr[y][x] != 0) {
-        int newY = figure->cordY + y + 1;
-        if (newY >= HEIGHT || game->field[newY][figure->cordX + x] != 0) {
-          return 0; // Если достигаем дна или сталкиваемся с другой фигурой
+void freeTetFiguresT(TetFiguresT* tetft){
+     if(tetft){
+        free(tetft);
+     }
+};
+
+TetField* createTetField(int width, int height){
+    TetField* tetf = (TetField*)malloc(sizeof(TetField));
+    tetf->width = width;
+    tetf->height = height;
+    tetf->blocks = (TetBlock*)malloc(sizeof(TetBlock)*width*height);
+    for (int i = 0; i < width * height; i++){
+        tetf->blocks[i].b = 0;
+    }
+    return tetf;
+};
+
+void freeTetField(TetField* tetf){
+    if (tetf){
+        if(tetf->blocks){
+            free(tetf->blocks);
         }
-      }
-    }
-  }
-  return 1;
-}
+    free(tetf);
+    } 
+};
 
-void movePieceDown(Figure_t *figure, GameInfo_t *game) {
-    if (canMoveDown(figure, game)) {
-        figure->cordY++;
+
+TetGame* createTetGame(int field_width, int field_height,  int figure_size,
+int count, TetBlock* figures_template, int score){
+    TetGame* tetg = (TetGame*)malloc(sizeof(TetGame)); 
+    tetg->field = createTetField(field_width, field_height);
+    tetg->figurest = createTetFiguresT(count, figure_size, figures_template);
+    tetg->ticks = TET_TICKS_START;
+    tetg->ticks_left = TET_TICKS_START;
+    tetg->score = 0;
+    tetg->high_score = score;
+    tetg->playing = 1;
+    tetg->level = 1;
+    tetg->next_template = rand() % tetg->figurest->count;
+    dropNewFigure(tetg); //выброс фигуры
+    return tetg;
+    
+};
+
+void freeTetGame(TetGame* tetg){
+    if (tetg){
+         freeTetField(tetg->field);
+         freeTetFiguresT(tetg->figurest);
+         free(tetg); 
+    }
+};
+
+
+void moveFigureDown(TetGame* tetg){ //перемещение фигуры вниз
+    if (tetg->playing == TET_GAMEOVER) return;
+    tetg->figure->y++;
+};
+void moveFigureUp(TetGame* tetg){ //перемещение фигуры вверх
+    if (tetg->playing == TET_GAMEOVER) return;
+    tetg->figure->y--;
+};
+void moveFigureRight(TetGame* tetg){ //перемещение фигуры вправо
+    if (tetg->playing == TET_GAMEOVER) return;
+    tetg->figure->x++;
+};
+void moveFigureLeft(TetGame* tetg){ //перемещение фигуры влево
+    if (tetg->playing == TET_GAMEOVER) return;
+    tetg->figure->x--;
+};
+int collusionTet(TetGame* tetg){ //проверка на столкновения
+    TetFigure* t = tetg->figure;
+    TetField* tf = tetg->field;
+    for (int i = 0; i < t->size; i++)
+        for (int j = 0; j < t->size; j++){
+            //y=i  x=j
+            if (t->blocks[i*t->size+j].b != 0){     
+                int fx = t->x + j;
+                int fy = t->y + i;
+                if (tf->blocks[fy*tf->width+fx].b != 0) //в том же самом месте есть ли блок
+                    return 1;
+                if (fx < 0 || fx >= tf->width || fy < 0 || fy >= tf->height) // за рамки выход
+                    return 1;
+            };
+        };
+    return 0; //если нет столеновений 0
+};
+
+void plantFigure(TetGame* tetg){ //фигура после падения
+    TetFigure* t = tetg->figure;
+    for (int i = 0; i < t->size; i++)
+        for (int j = 0; j < t->size; j++){
+            //y=i  x=j
+            if (t->blocks[i*t->size+j].b != 0){
+                int fx = t->x + j;
+                int fy = t->y + i;
+                tetg->field->blocks[fy*tetg->field->width+fx].b = t->blocks[i*t->size+j].b;
+            };
+        };
+};
+
+int lineFilledTet(int i, TetField* tfl){ //проверка на заполненность строки
+    for (int j = 0; j < tfl->width; j++)
+        if(tfl->blocks[i*tfl->width+j].b == 0){ //если в строке найден 0
+            return 0;
+        }
+    return 1;
+};
+
+void dropLineTet(int i, TetField* tfl){ //сдвиг блоков поля
+    if (i == 0){
+        for (int j = 0; j < tfl->width; j++) //нулевую строку просто очищаем
+            tfl->blocks[j].b = 0;
     } else {
-        fixPiece(figure, game);
-        checkRow(game);
-        checkGameOver(game);
-        spawnNewPiece(figure, game);
-    }
-}
+        for (int k = i; k > 0; k--)
+            for (int j = 0; j < tfl->width; j++)
+            tfl->blocks[k*tfl->width+j].b = tfl->blocks[(k - 1)*tfl->width+j].b;
+        
+    };
+};
+
+int eraseLinesTet(TetGame* tetg){ //очищаем заполненнные строки и добавляем очки
+    TetField* tfl = tetg->field;
+    int count = 0; //кол-во удаленных строк
+    for (int i = tfl->height - 1; i >= 0; i--){ //начинаем с последней
+        while (lineFilledTet(i, tfl)){ //пока текущая строка заполнена
+            dropLineTet(i, tfl); // удаляем её со сдвигом вниз
+            count++;
+        };
+    };
+    return count;
+};
 
 
-void fixPiece(Figure_t *figure, GameInfo_t *game) {
-    for (int y = 0; y < 4; y++) {
-        for (int x = 0; x < 4; x++) {
-            if (figure->figureArr[y][x] != 0) {
-                int newY = figure->cordY + y;
-                int newX = figure->cordX + x;
-                // Проверяем, что индексы в пределах игрового поля
-                if (newY >= 0 && newY < HEIGHT && newX >= 0 && newX < WIDTH) {
-                    game->field[newY][newX] = figure->figureArr[y][x];
-                } else {
-                    printf("Error: Out of bounds! Y: %d, X: %d\n", newY, newX);
-                }
+TetFigure* createTetFigure(TetGame* tetg){
+    TetFigure* t = (TetFigure*)malloc(sizeof(TetFigure));
+    t->x = 0;
+    t->y = 0;
+    t->size = tetg->figurest->size;
+    t->blocks = (TetBlock*)malloc(sizeof(TetBlock)*t->size*t->size);
+    return t;
+};
+
+void freeTetFigure(TetFigure* tf){
+    if(tf){
+        if(tf->blocks)
+            free(tf->blocks);
+        free(tf);
+    };
+};
+
+void dropNewFigure(TetGame* tetg){ //выброс новой фигуры
+    tetg->number_template = tetg->next_template;
+    TetFigure* t = createTetFigure(tetg); //создаем новую фигуру в памяти
+    t->x = tetg->field->width/2 - t->size/2;
+    t->y = 0;
+    int fnum = tetg->number_template; //случайное число от 0 до кол-во шаблонов - 1
+    for (int i = 0; i < t->size; i++)
+        for(int j = 0; j < t->size; j++){
+            t->blocks[i*t->size+j].b = tetg->figurest->blocks[fnum*t->size*t->size + 
+            i*t->size + j].b; //скопируем блоки шалблона
+        };
+    freeTetFigure(tetg->figure);
+    tetg->figure = t;
+    tetg->next_template = rand() % tetg->figurest->count;
+   
+};
+
+TetFigure* rotTetFigure(TetGame* tetg){
+    TetFigure* t = createTetFigure(tetg);
+    TetFigure* told = tetg->figure;
+    t->x = told->x;
+    t->y = told->y;
+    for (int i = 0; i < t->size; i++)
+        for(int j = 0; j < t->size; j++) //последний столбец старой фигурф = первая строка новой, 
+        // предпоследний столбец старой = вторая строка новой и тд
+            t->blocks[i*t->size+j].b = told->blocks[j*t->size+t->size-1-i].b;
+    return t;
+};
+
+int convert_count_to_score(int count){ //преобразование кол-ва линий в очки
+    switch(count){
+        case 0: return 0;
+        case 1: return 100;
+        case 2: return 300;
+        case 3: return 700;
+        case 4: return 1500;
+        default: return 1500;
+    };
+};
+
+
+
+void calculateTet(TetGame* tetg){
+    if (collusionTet(tetg)){
+                tetg->playing = TET_GAMEOVER;
+                return;
+            };
+    if(tetg->ticks_left <= 0){ //ticks_left - кол-во тактов до перемещения
+        tetg->ticks_left = tetg->ticks; //ticks - кол-во тактов между перемещениями
+        moveFigureDown(tetg);
+        if (collusionTet(tetg)){
+            moveFigureUp(tetg);  //передвигаем фигуру в исходное положение
+            plantFigure(tetg); //переносим её блоки на поле
+            tetg->score += convert_count_to_score(eraseLinesTet(tetg));
+            if (tetg->score > tetg->high_score){
+                tetg->high_score = tetg->score;
             }
-        }
-    }
-}
-
-
-void spawnNewPiece(Figure_t *figure, GameInfo_t *game) {
-  // Копируем новую фигуру в текущую
-  for (int y = 0; y < 4; y++) {
-    for (int x = 0; x < 4; x++) {
-      figure->figureArr[y][x] = game->next[y][x];
-    }
-  }
-  int random = rand() % 7;
-  figure->type = figure->nextType;
-  for (int i = 0; i < 4; i++) {
-    for (int j = 0; j < 4; j++) {
-      game->next[i][j] = TETROMINOS[random][i][j];
-    }
-  }
-  figure->nextType = random;
-  figure->cordX = 3;
-  figure->cordY = 0;
-}
-
-void spawnFirstFig(Figure_t *figure, GameInfo_t *game) {
-  figure->cordX = 3;
-  figure->cordY = 0;
-  // начальная фигура и некст фигура
-  int random = rand() % 8;
-  figure->nextType = random;
-  for (int i = 0; i < 4; i++) {
-    for (int j = 0; j < 4; j++) {
-      game->next[i][j] = TETROMINOS[random][i][j];
-    }
-  }
-  random += (random == 0) ? 1 : -1;
-  figure->type = random;
-  for (int i = 0; i < 4; i++) {
-    for (int j = 0; j < 4; j++) {
-      figure->figureArr[i][j] = TETROMINOS[random][i][j];
-    }
-  }
-}
-
-bool canRotate(Figure_t *figure, GameInfo_t *game, int tempFigure[4][4]) {
-    for (int y = 0; y < 4; y++) {
-        for (int x = 0; x < 4; x++) {
-            if (tempFigure[y][x] != 0) {
-                int newY = figure->cordY + y;
-                int newX = figure->cordX + x;
-
-                // Проверка на выход за границы поля
-                if (newY < 0 || newY >= HEIGHT || newX < 0 || newX >= WIDTH) {
-                    return false;
-                }
-
-                // Проверка на пересечение с другими блоками
-                if (game->field[newY][newX] != 0) {
-                    return false;
-                }
+            tetg->level = tetg->score/600 + 1; //вычисляем уровень
+            tetg->ticks = TET_TICKS_START * (1 - (tetg->level - 1)*0.1); //уменьшаем кол-во тактов
+            //tetg->score += eraseLinesTet(tetg); //добавляем к очкам кол-во строк заполненных блоками и удаляем их
+            dropNewFigure(tetg); //выбрасываем новую фигуру
+            
+        };
+    };
+    switch(tetg->player->action){
+        case TET_PLAYER_RIGHT:
+            moveFigureRight(tetg);
+            if (collusionTet(tetg)){
+                moveFigureLeft(tetg);
             }
-        }
-    }
-    return true;
-}
-
-
-int canMove(Figure_t *figure, GameInfo_t *game, int dx, int dy) {
-  for (int y = 0; y < 4; y++) {
-    for (int x = 0; x < 4; x++) {
-      if (figure->figureArr[y][x]) {
-        int newX = figure->cordX + x + dx;
-        int newY = figure->cordY + y + dy;
-        // Проверка на границы поля
-        if (newX < 0 || newX >= WIDTH || newY >= HEIGHT) {
-          return 0; // Выход за границы
-        }
-        // Проверка на столкновение с существующими фигурами на поле
-        if (game->field[newY][newX]) {
-          return 0;
-        }
-      }
-    }
-  }
-  return 1;
-}
-
-void rotateFigure(Figure_t *figure, GameInfo_t *game) {
-    int tempFigure[4][4] = {0};
-
-    // Квадратная фигура (O) не вращается
-    if (figure->type == O_FIGURE_TYPE) {
-        return;
-    }
-
-    // Поворот на 90 градусов по часовой стрелке
-    for (int y = 0; y < 4; y++) {
-        for (int x = 0; x < 4; x++) {
-            tempFigure[x][3 - y] = figure->figureArr[y][x];
-        }
-    }
-
-    // Проверяем, возможно ли вращение в текущей позиции
-    if (canRotate(figure, game, tempFigure)) {
-        // Копируем временную фигуру в основную
-        for (int y = 0; y < 4; y++) {
-            for (int x = 0; x < 4; x++) {
-                figure->figureArr[y][x] = tempFigure[y][x];
+            break;
+        case TET_PLAYER_LEFT:
+            moveFigureLeft(tetg);
+            if (collusionTet(tetg)){
+                moveFigureRight(tetg);
             }
-        }
-    } else {
-        printf("Rotation blocked at Y: %d, X: %d\n", figure->cordY, figure->cordX);
-    }
-}
-
-
-void checkRow(GameInfo_t *game) {
-  int streak = 0;
-  for (int i = HEIGHT - 1; i >= 0; i--) {
-    bool isFullRow = true;
-    for (int j = 0; j < WIDTH; j++) {
-      if (!game->field[i][j]) {
-        isFullRow = false;
-        break;
-      }
-    }
-    if (isFullRow) {
-      moveField(game, i);
-      streak++;
-      i++;
-    }
-  }
-  if (streak)
-    updateScore(game, streak);
-}
-
-void moveField(GameInfo_t *game, int row) {
-  for (int i = row; i > 0; i--)
-    for (int j = 0; j < WIDTH; j++) {
-      game->field[i][j] = game->field[i - 1][j];
-    }
-  for (int i = 0; i < WIDTH; i++) {
-    game->field[0][i] = 0;
-  }
-}
-
-void updateScore(GameInfo_t *game, int streak) {
-  int score_increments[4] = {100, 300, 700, 1500};
-  game->score += score_increments[streak - 1];
-  if (game->score > 99999)
-    game->score = 99999;
-  if (game->score > game->high_score)
-    game->high_score = game->score;
-  game->level = (game->score / 600) + 1;
-  if (game->level > 10)
-    game->level = 10;
-  game->speed = game->level;
-}
-
-void checkGameOver(GameInfo_t *game) {
-  for (int i = 0; i < WIDTH; i++)
-    if (game->field[1][i] != 0)
-      game->pause = 2;
-}
-
-void writeHighScore(int hscore) {
-  FILE *fp = fopen("hscore.txt", "w");
-  if (fp == NULL) {
-    printf("Error opening file!\n");
-    return;
-  }
-  fprintf(fp, "%d", hscore);
-  fclose(fp);
-}
-
-void readHighScore(int *hscore) {
-  FILE *fp = fopen("hscore.txt", "r");
-  if (fp == NULL) {
-    *hscore = 0;
-  } else {
-    fscanf(fp, "%d", hscore);
-    fclose(fp);
-  }
-}
-
-void userInput(GameInfo_t *game, Figure_t *figure, UserAction_t action) {
-  switch (action) { // 0 active 1 pause 2 exit 3 wait to start
-  case Pause:
-    game->pause = !game->pause;
-    break;
-  case Left:
-    if (canMove(figure, game, -1, 0)) {
-      figure->cordX--;
-    }
-    break;
-  case Right:
-    if (canMove(figure, game, 1, 0)) {
-      figure->cordX++;
-    }
-    break;
-  case Down:
-    movePieceDown(figure, game);
-    break;
-  case Action:
-    rotateFigure(figure, game);
-    break;
-  case Terminate:
-    game->pause = 2;
-    break;
-  case Start:
-    game->pause = 0;
-    break;
-  default:
-    break;
-  }
-}
-
-void freeMemory(GameInfo_t *game, int f, int n) {
-  if (f) {
-    for (int i = 0; i < HEIGHT; i++) {
-      free(game->field[i]);
-    }
-    free(game->field);
-  }
-  if (n) {
-    for (int i = 0; i < 4; i++) {
-      free(game->next[i]);
-    }
-    free(game->next);
-  }
-}
-
-void fallTime(struct timeval *lastFallTime, struct timeval *currentTime,
-              GameInfo_t *game, Figure_t *figure) {
-  int speedState[10] = {1000, 900, 800, 700, 600, 500, 400, 300, 200, 100};
-  gettimeofday(currentTime, NULL);
-  if ((currentTime->tv_sec - lastFallTime->tv_sec) * 1000 +
-          (currentTime->tv_usec - lastFallTime->tv_usec) / 1000 >
-      speedState[game->speed - 1]) {
-    movePieceDown(figure, game);
-    gettimeofday(lastFallTime, NULL); // Обновляем время последнего падения
-  }
-}
+            break;
+        case TET_PLAYER_DOWN:
+            moveFigureDown(tetg);
+            if (collusionTet(tetg)){
+                moveFigureUp(tetg);
+            }
+            break;
+        case TET_PLAYER_UP:{
+            TetFigure* t = rotTetFigure(tetg); //фигура после поворота
+            TetFigure* told = tetg->figure; // до поворота
+            tetg->figure = t; //разворачиваем
+            if (collusionTet(tetg)){ 
+                tetg->figure = told; //возвращаем старую, если произошло столкновение
+                freeTetFigure(t); //удаляем новую
+            } else {
+                freeTetFigure(told);}; //если все норм, удаляем старую
+            };
+            break;
+        case TET_PLAYER_NOP:
+        default: break;
+    };
+    tetg->ticks_left--;
+};
+#endif

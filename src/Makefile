@@ -11,7 +11,7 @@ $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
 
 install: $(BUILD_DIR)/tetris_lib.a
-	$(CC) $(FLAGS) -o $(BUILD_DIR)/tetris main.c gui/cli/graphics.c $(BUILD_DIR)/tetris_lib.a -lncurses
+	$(CC) $(FLAGS) -o $(BUILD_DIR)/tetris main.c gui/cli/interface.c help_func.c $(BUILD_DIR)/tetris_lib.a -lncurses
 
 uninstall:
 	-rm -f $(BUILD_DIR)/tetris
@@ -47,4 +47,6 @@ gcov_report: $(BUILD_DIR)/tetris_lib.a
 	rm -rf *.gcda *.gcno
 
 dist:
-	tar -czf $(BUILD_DIR)/tetris.install.tar.gz ./*
+	@echo "Создание архива с исходниками..."
+	tar -czf tetrisgame-dist.tar.gz $(SRC_DIR) Makefile
+	@echo "Архив tetrisgame-dist.tar.gz успешно создан."
