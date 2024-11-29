@@ -1,6 +1,7 @@
 CC=gcc
 CC_FLAGS=-Wall -Werror -Wextra
 BUILD_DIR = build
+DOP_FOR_ME=-I/opt/homebrew/Cellar/check/0.15.2/include -L/opt/homebrew/Cellar/check/0.15.2/lib
 
 .PHONY: all clean install
 
@@ -10,7 +11,7 @@ $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
 
 install: $(BUILD_DIR)/tetris_lib.a
-	$(CC) $(FLAGS) -o $(BUILD_DIR)/tetris main.c gui/cli/interface.c help_func.c $(BUILD_DIR)/tetris_lib.a -lncurses
+	$(CC) $(FLAGS) -o $(BUILD_DIR)/tetris main.c gui/cli/graphics.c $(BUILD_DIR)/tetris_lib.a -lncurses
 
 uninstall:
 	-rm -f $(BUILD_DIR)/tetris
@@ -33,17 +34,12 @@ dvi:
 	open info/tetris.md
 
 test: clean $(BUILD_DIR)/tetris_lib.a
-	$(CC) -g --coverage $(FLAGS) tests/tests.c -o $(BUILD_DIR)/test  $(BUILD_DIR)/tetris_lib.a \
-		-I/opt/homebrew/Cellar/check/0.15.2/include \
-		-L/opt/homebrew/Cellar/check/0.15.2/lib \
-		-lcheck  # -lpthread -lrt -lm -lsubunit
+	$(CC) -g --coverage $(FLAGS) tests/tests.c -o $(BUILD_DIR)/test  $(BUILD_DIR)/tetris_lib.a $(DOP_FOR_ME) -lcheck  # -lpthread -lrt -lm -lsubunit
 	$(BUILD_DIR)/test
 
 gcov_report: $(BUILD_DIR)/tetris_lib.a
 	rm -f *.g*
-	$(CC) $(FLAGS) brick_game/tetris/tetris.c tests/*.c $(BUILD_DIR)/tetris_lib.a -I/opt/homebrew/Cellar/check/0.15.2/include \
-		-L/opt/homebrew/Cellar/check/0.15.2/lib \
-		-lcheck --coverage -lncurses
+	$(CC) $(FLAGS) brick_game/tetris/tetris.c tests/*.c $(BUILD_DIR)/tetris_lib.a $(DOP_FOR_ME) -lcheck --coverage -lncurses
 	./a.out
 	lcov -t ./a.out -o rep.info -c -d .
 	genhtml -o report rep.info
@@ -51,6 +47,4 @@ gcov_report: $(BUILD_DIR)/tetris_lib.a
 	rm -rf *.gcda *.gcno
 
 dist:
-	@echo "Создание архива с исходниками..."
-	tar -czf tetrisgame-dist.tar.gz $(SRC_DIR) Makefile
-	@echo "Архив tetrisgame-dist.tar.gz успешно создан."
+	tar -czf $(BUILD_DIR)/tetris.install.tar.gz ./*
